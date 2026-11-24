@@ -1,0 +1,113 @@
+@model CollegeManagement.Models.PortalDashboardViewModel
+@{
+    ViewData["Title"] = "Медицинский портал";
+}
+
+<h1 class="mb-4">Медицинский портал</h1>
+
+@if (!string.IsNullOrWhiteSpace(Model.Notice))
+{
+    <div class="alert alert-info" role="status">@Model.Notice</div>
+}
+
+<section class="row g-3 mb-4" aria-label="Статистика портала">
+    <div class="col-md-4"><div class="card card-body"><strong>Пациенты</strong><span>@Model.Statistics.PatientCount</span></div></div>
+    <div class="col-md-4"><div class="card card-body"><strong>Врачи</strong><span>@Model.Statistics.DoctorCount</span></div></div>
+    <div class="col-md-4"><div class="card card-body"><strong>Записи на приём</strong><span>@Model.Statistics.AppointmentCount</span></div></div>
+    <div class="col-md-4"><div class="card card-body"><strong>Завершённые приёмы</strong><span>@Model.Statistics.CompletedAppointmentCount</span></div></div>
+    <div class="col-md-4"><div class="card card-body"><strong>Оплаченные услуги</strong><span>@Model.Statistics.PaidServiceTotal.ToString("C")</span></div></div>
+</section>
+
+<section class="mb-5">
+    <h2>Поиск пациента</h2>
+    <form asp-action="Index" method="get" class="d-flex gap-2">
+        <input type="search" name="search" class="form-control" placeholder="ID, ФИО или телефон" aria-label="ID, ФИО или телефон пациента" />
+        <button class="btn btn-primary" type="submit">Найти</button>
+    </form>
+    @if (Model.SearchMessage is not null)
+    {
+        <p class="mt-2" role="status">@Model.SearchMessage</p>
+    }
+    @if (Model.SearchResult is not null)
+    {
+        <p class="mt-2">#@Model.SearchResult.PatientId — @Model.SearchResult.FullName, @Model.SearchResult.PhoneNumber</p>
+    }
+</section>
+
+<section class="mb-5">
+    <h2>Запись на приём</h2>
+    <form asp-action="BookAppointment" method="post" class="row g-2 align-items-end">
+        @Html.AntiForgeryToken()
+        <div class="col-md-3">
+            <label for="patientId" class="form-label">Пациент</label>
+            <select id="patientId" name="patientId" class="form-select" required>
+                @foreach (var patient in Model.Patients)
+                {
+                    <option value="@patient.PatientId">@patient.FullName (№@patient.PatientId)</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label for="doctorId" class="form-label">Врач</label>
+            <select id="doctorId" name="doctorId" class="form-select" required>
+                @foreach (var doctor in Model.Doctors)
+                {
+                    <option value="@doctor.DoctorId">@doctor.FullName — @doctor.Specialization</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label for="appointmentDate" class="form-label">Дата и время</label>
+            <input id="appointmentDate" name="appointmentDate" type="datetime-local" class="form-control" required />
+        </div>
+        <div class="col-md-3"><button class="btn btn-success" type="submit">Записать</button></div>
+    </form>
+</section>
+
+<div class="row g-4">
+    <section class="col-lg-6">
+        <h2>Врачи</h2>
+        <ul class="list-group">
+            @foreach (var doctor in Model.Doctors)
+            {
+                <li class="list-group-item">@doctor.FullName — @doctor.Specialization, стаж @doctor.Experience лет</li>
+            }
+        </ul>
+    </section>
+    <section class="col-lg-6">
+        <h2>Медицинские услуги</h2>
+        <ul class="list-group">
+            @foreach (var service in Model.Services)
+            {
+                <li class="list-group-item">@service.ServiceName — @service.Price.ToString("C") (@service.Duration.TotalMinutes мин.)</li>
+            }
+        </ul>
+    </section>
+</div>
+
+<section class="mt-5">
+    <h2>Записи на приём</h2>
+    @if (Model.Appointments.Count == 0)
+    {
+        <p>Записей пока нет.</p>
+    }
+    else
+    {
+        <ul class="list-group">
+            @foreach (var appointment in Model.Appointments.OrderBy(item => item.AppointmentDate).ThenBy(item => item.AppointmentTime))
+            {
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <span>@appointment.AppointmentDate.ToString("dd.MM.yyyy") @appointment.AppointmentTime.ToString("hh\\:mm") — @appointment.Patient.FullName, врач @appointment.Doctor.FullName, @appointment.Status</span>
+                    @if (appointment.Status is AppointmentStatus.Scheduled or AppointmentStatus.Confirmed)
+                    {
+                        <form asp-action="CompleteAppointment" method="post">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="appointmentId" value="@appointment.AppointmentId" />
+                            <button class="btn btn-outline-success btn-sm" type="submit">Завершить</button>
+                        </form>
+                    }
+                </li>
+            }
+        </ul>
+    }
+</section>
